@@ -1,0 +1,14 @@
+services:
+  homebridge-pvpc-cost:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: homebridge-pvpc-cost
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Madrid
+      ESIOS_API_TOKEN: ${ESIOS_API_TOKEN:-}
+    ports:
+      - "8581:8581"
+    volumes:
+      - ./homebridge-data:/homebridge

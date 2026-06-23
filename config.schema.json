@@ -1,0 +1,131 @@
+{
+  "pluginAlias": "PVPCCost",
+  "pluginType": "platform",
+  "singular": false,
+  "strictValidation": true,
+  "schema": {
+    "type": "object",
+    "required": [
+      "name"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "default": "PVPC Cost"
+      },
+      "zone": {
+        "title": "Zone",
+        "type": "string",
+        "default": "PCB",
+        "oneOf": [
+          {
+            "title": "PCB (public Peninsula/Balearic/Canary tariff)",
+            "enum": [
+              "PCB"
+            ]
+          },
+          {
+            "title": "CYM (public Ceuta/Melilla tariff)",
+            "enum": [
+              "CYM"
+            ]
+          },
+          {
+            "title": "Peninsula (token recommended)",
+            "enum": [
+              "PENINSULA"
+            ]
+          },
+          {
+            "title": "Canarias (token recommended)",
+            "enum": [
+              "CANARIAS"
+            ]
+          },
+          {
+            "title": "Baleares (token recommended)",
+            "enum": [
+              "BALEARES"
+            ]
+          },
+          {
+            "title": "Ceuta (token recommended)",
+            "enum": [
+              "CEUTA"
+            ]
+          },
+          {
+            "title": "Melilla (token recommended)",
+            "enum": [
+              "MELILLA"
+            ]
+          }
+        ]
+      },
+      "updateIntervalMinutes": {
+        "title": "Update Interval (minutes)",
+        "type": "integer",
+        "default": 15,
+        "minimum": 5,
+        "maximum": 180
+      },
+      "cheapThresholdEurKwh": {
+        "title": "Cheap Threshold (EUR/kWh)",
+        "type": "number",
+        "default": 0.1,
+        "minimum": 0,
+        "maximum": 5,
+        "step": 0.001
+      },
+      "expensiveThresholdEurKwh": {
+        "title": "Expensive Threshold (EUR/kWh)",
+        "type": "number",
+        "default": 0.15,
+        "minimum": 0,
+        "maximum": 5,
+        "step": 0.001
+      },
+      "exposeMode": {
+        "title": "Expose Mode",
+        "type": "string",
+        "default": "both",
+        "oneOf": [
+          {
+            "title": "Sensors only",
+            "enum": [
+              "sensors"
+            ]
+          },
+          {
+            "title": "Switches only",
+            "enum": [
+              "switches"
+            ]
+          },
+          {
+            "title": "Sensors and switches",
+            "enum": [
+              "both"
+            ]
+          }
+        ]
+      },
+      "esiosApiToken": {
+        "title": "ESIOS API Token",
+        "type": "string",
+        "description": "Optional. If omitted, the plugin also checks the ESIOS_API_TOKEN environment variable. Required for exact geographic zones such as Canarias, Baleares, Ceuta, or Melilla."
+      }
+    }
+  },
+  "form": [
+    "name",
+    "zone",
+    "updateIntervalMinutes",
+    "cheapThresholdEurKwh",
+    "expensiveThresholdEurKwh",
+    "exposeMode",
+    "esiosApiToken"
+  ]
+}

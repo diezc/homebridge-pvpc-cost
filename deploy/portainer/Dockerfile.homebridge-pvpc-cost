@@ -1,0 +1,7 @@
+FROM homebridge/homebridge:latest
+
+COPY homebridge-pvpc-cost.tgz /tmp/homebridge-pvpc-cost.tgz
+
+RUN npm install -g /tmp/homebridge-pvpc-cost.tgz && rm /tmp/homebridge-pvpc-cost.tgz
+
+ENV TZ=Europe/Madrid

@@ -1,0 +1,62 @@
+{
+  "name": "homebridge-pvpc-cost",
+  "displayName": "Homebridge PVPC Cost",
+  "version": "0.1.0",
+  "author": "OpenCode",
+  "description": "Homebridge dynamic platform plugin exposing Spain PVPC electricity pricing to Apple Home.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "config.schema.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "license": "MIT",
+  "packageManager": "npm@10.9.8",
+  "keywords": [
+    "homebridge-plugin",
+    "homebridge",
+    "apple-home",
+    "homekit",
+    "pvpc",
+    "esios",
+    "electricity",
+    "spain"
+  ],
+  "engines": {
+    "node": "^22.10.0 || ^24.0.0",
+    "homebridge": "^1.8.0 || ^2.0.0"
+  },
+  "scripts": {
+    "build": "rimraf ./dist && tsc",
+    "lint": "eslint . --max-warnings=0",
+    "test": "tsx --test test/**/*.test.ts",
+    "smoke": "tsx --test test/homebridge-smoke.integration.ts",
+    "pack:podman": "./scripts/podman-pack.sh",
+    "pack:dryrun": "npm pack --dry-run",
+    "prepublishOnly": "npm run lint && npm run build && npm run test && npm run smoke && npm run pack:dryrun"
+  },
+  "peerDependencies": {
+    "homebridge": "^1.8.0 || ^2.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.29.0",
+    "@types/node": "^22.15.30",
+    "eslint": "^9.29.0",
+    "globals": "^16.2.0",
+    "homebridge": "^1.11.0",
+    "rimraf": "^6.0.1",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.34.1"
+  }
+}

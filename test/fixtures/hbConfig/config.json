@@ -1,0 +1,20 @@
+{
+  "bridge": {
+    "name": "PVPC Smoke Bridge",
+    "username": "0E:56:AA:12:34:56",
+    "port": 51826,
+    "pin": "031-45-154"
+  },
+  "accessories": [],
+  "platforms": [
+    {
+      "platform": "PVPCCost",
+      "name": "PVPC Smoke",
+      "zone": "PCB",
+      "updateIntervalMinutes": 15,
+      "cheapThresholdEurKwh": 0.1,
+      "expensiveThresholdEurKwh": 0.15,
+      "exposeMode": "sensors"
+    }
+  ]
+}
