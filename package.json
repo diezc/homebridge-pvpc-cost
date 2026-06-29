@@ -1,7 +1,7 @@
 {
   "name": "homebridge-pvpc-cost",
   "displayName": "Homebridge PVPC Cost",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "author": "OpenCode",
   "description": "Homebridge dynamic platform plugin exposing Spain PVPC electricity pricing to Apple Home.",
   "type": "module",
