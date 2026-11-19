@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 import { classifyBand, computeDerivedState } from '../src/pvpc-state.js';
+import { PLUGIN_VERSION } from '../src/settings.js';
 import { getMadridHourKey, getTomorrowRefreshDelayMs } from '../src/time.js';
 
 test('getMadridHourKey selects current hour in Europe/Madrid timezone', () => {
@@ -101,12 +102,13 @@ test('getTomorrowRefreshDelayMs schedules next-day refresh after cutoff', () => 
 test('package metadata stays aligned with build output', async () => {
   const packageJson = JSON.parse(
     await readFile(new URL('../package.json', import.meta.url), 'utf8'),
-  ) as { main: string };
+  ) as { main: string; version: string };
   const tsconfig = JSON.parse(
     await readFile(new URL('../tsconfig.json', import.meta.url), 'utf8'),
   ) as { compilerOptions: { rootDir: string; outDir: string } };
 
   assert.equal(packageJson.main, 'dist/index.js');
+  assert.equal(PLUGIN_VERSION, packageJson.version);
   assert.equal(tsconfig.compilerOptions.rootDir, 'src');
   assert.equal(tsconfig.compilerOptions.outDir, 'dist');
 });
