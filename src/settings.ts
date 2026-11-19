@@ -1,6 +1,11 @@
+import { readFileSync } from 'node:fs';
+
 export const PLUGIN_NAME = 'homebridge-pvpc-cost';
 export const PLATFORM_NAME = 'PVPCCost';
-export const PLUGIN_VERSION = '0.1.0';
+// Read from package.json (one level up from both src/ and dist/) so HomeKit always reports the published version.
+export const PLUGIN_VERSION: string = (
+  JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }
+).version;
 export const MADRID_TIME_ZONE = 'Europe/Madrid';
 export const PUBLIC_PVPC_URL = 'https://api.esios.ree.es/archives/70/download_json';
 export const TOKEN_PVPC_URL = 'https://api.esios.ree.es/indicators/1001';
