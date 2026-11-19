@@ -20,7 +20,7 @@ test('classifyBand applies cheap, normal, and expensive thresholds', () => {
   assert.equal(classifyBand(0.16, 0.10, 0.15), 'expensive');
 });
 
-test('computeDerivedState finds next cheap hour and cheapest windows', () => {
+test('computeDerivedState finds the next cheap hour', () => {
   const now = new Date('2026-06-22T08:15:00.000Z');
   const hourlyPrices = {
     '2026-06-22T08:00:00.000Z': 0.18,
@@ -45,12 +45,9 @@ test('computeDerivedState finds next cheap hour and cheapest windows', () => {
   assert.equal(state.currentHourKey, '2026-06-22T10:00');
   assert.equal(state.currentPrice, 0.18);
   assert.equal(state.currentBand, 'expensive');
-  assert.equal(state.cheapestHourToday?.hourKey, '2026-06-22T14:00');
-  assert.equal(state.cheapestHourNext24h?.hourKey, '2026-06-23T09:00');
   assert.equal(state.isCheapNow, false);
   assert.equal(state.isExpensiveNow, true);
   assert.equal(state.nextCheapStart, '2026-06-22T13:00');
-  assert.equal(state.hoursUntilCheap, 3);
   assert.equal(state.stale, false);
 });
 

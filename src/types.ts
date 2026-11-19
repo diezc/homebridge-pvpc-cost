@@ -54,22 +54,14 @@ export interface FetchPricesResult {
   tomorrowError?: string;
 }
 
-export interface CheapestHour {
-  hourKey: string;
-  price: number;
-}
-
 export interface DerivedState {
   currentHourKey: string;
   currentPrice: number | null;
   currentPriceCentsKwh: number | null;
   currentBand: Band | null;
-  cheapestHourToday: CheapestHour | null;
-  cheapestHourNext24h: CheapestHour | null;
   isCheapNow: boolean;
   isExpensiveNow: boolean;
   nextCheapStart: string | null;
-  hoursUntilCheap: number | null;
   stale: boolean;
   staleReason: string | null;
   latestHourKey: string | null;
