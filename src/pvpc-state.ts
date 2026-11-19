@@ -1,14 +1,10 @@
 import {
   getHoursBetweenHourKeys,
-  getMadridDateKey,
-  getMadridDateKeyFromUtcHourKey,
   getMadridHourKey,
   getMadridHourKeyFromUtcHourKey,
   getUtcHourKey,
 } from './time.js';
-import type { Band, CheapestHour, DerivedState } from './types.js';
-
-type PriceEntry = [utcHourKey: string, price: number];
+import type { Band, DerivedState } from './types.js';
 
 export function classifyBand(
   priceEurKwh: number,
@@ -36,7 +32,6 @@ export function computeDerivedState(
 ): DerivedState {
   const currentUtcHourKey = getUtcHourKey(now);
   const currentHourKey = getMadridHourKey(now);
-  const currentDateKey = getMadridDateKey(now);
   const sortedEntries = Object.entries(hourlyPrices)
     .filter(([hourKey, price]) => Number.isFinite(Date.parse(hourKey)) && Number.isFinite(price))
     .sort(([left], [right]) => left.localeCompare(right));
@@ -51,13 +46,10 @@ export function computeDerivedState(
     ? null
     : classifyBand(currentPrice, cheapThresholdEurKwh, expensiveThresholdEurKwh);
   const currentPriceCentsKwh = currentPrice === null ? null : roundTo(currentPrice * 100, 2);
-  const todayEntries = sortedEntries.filter(([hourKey]) => getMadridDateKeyFromUtcHourKey(hourKey) === currentDateKey);
   const next24hEntries = sortedEntries.filter(([hourKey]) => {
     const diff = getHoursBetweenHourKeys(currentUtcHourKey, hourKey);
     return diff >= 0 && diff < 24;
   });
-  const cheapestHourToday = getCheapestHour(todayEntries);
-  const cheapestHourNext24h = getCheapestHour(next24hEntries);
   const nextCheapEntry = next24hEntries.find(([, price]) => price <= cheapThresholdEurKwh) ?? null;
 
   const staleThresholdMinutes = Math.max(updateIntervalMinutes * 3, 60);
@@ -79,25 +71,13 @@ export function computeDerivedState(
     currentPrice,
     currentPriceCentsKwh,
     currentBand,
-    cheapestHourToday,
-    cheapestHourNext24h,
     isCheapNow: currentBand === 'cheap',
     isExpensiveNow: currentBand === 'expensive',
     nextCheapStart: nextCheapEntry === null ? null : getMadridHourKeyFromUtcHourKey(nextCheapEntry[0]),
-    hoursUntilCheap: nextCheapEntry === null ? null : getHoursBetweenHourKeys(currentUtcHourKey, nextCheapEntry[0]),
     stale,
     staleReason,
     latestHourKey,
   };
-}
-
-function getCheapestHour(entries: PriceEntry[]): CheapestHour | null {
-  if (entries.length === 0) {
-    return null;
-  }
-
-  const [hourKey, price] = entries.reduce((lowest, entry) => entry[1] < lowest[1] ? entry : lowest);
-  return { hourKey: getMadridHourKeyFromUtcHourKey(hourKey), price };
 }
 
 function roundTo(value: number, decimals: number): number {

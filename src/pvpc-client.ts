@@ -229,6 +229,12 @@ export function parsePublicPvpc(payload: PublicResponse, zone: 'PCB' | 'CYM'): R
     throw new Error('PVPC public payload did not contain hourly rows');
   }
 
+  // Rows are mapped to hours by position, so anything other than a day of hourly rows
+  // (23-25 with DST changes), such as quarter-hour data, must be rejected rather than mislabelled.
+  if (rows.length < 23 || rows.length > 25) {
+    throw new Error(`PVPC public payload has unexpected row count: expected 23-25 hourly rows, got ${rows.length}`);
+  }
+
   const dateKey = parsePublicDate(rows[0].Dia);
   const dayStartUtc = getMadridDayStartUtc(dateKey);
 
@@ -256,10 +262,20 @@ export function parseTokenPvpc(payload: TokenResponse, geoName: string): Record<
     throw new Error(`PVPC token payload did not contain geo zone ${geoName}`);
   }
 
-  return Object.fromEntries(filtered.map(entry => {
+  // Group by UTC hour; if the feed ever delivers sub-hourly (e.g. quarter-hour) values,
+  // average them into the hourly price instead of keeping whichever came last.
+  const valuesByHour = new Map<string, number[]>();
+  for (const entry of filtered) {
     const sourceTimestamp = entry.datetime_utc ?? entry.datetime;
     const utcHourKey = getUtcHourKey(new Date(sourceTimestamp));
-    return [utcHourKey, parseNormalizedPrice(entry.value / 1000, `token PVPC row for ${geoName}`)];
+    const hourValues = valuesByHour.get(utcHourKey) ?? [];
+    hourValues.push(entry.value);
+    valuesByHour.set(utcHourKey, hourValues);
+  }
+
+  return Object.fromEntries([...valuesByHour].map(([utcHourKey, hourValues]) => {
+    const averageEurMwh = hourValues.reduce((sum, value) => sum + value, 0) / hourValues.length;
+    return [utcHourKey, parseNormalizedPrice(averageEurMwh / 1000, `token PVPC row for ${geoName}`)];
   }));
 }
 
@@ -333,7 +349,8 @@ function parseEuropeanNumber(value: string): number {
 }
 
 function parsePublicHour(value: string): number {
-  const hour = Number(value.slice(0, 2));
+  const match = /^(\d{2})-\d{2}$/.exec(value);
+  const hour = match === null ? Number.NaN : Number(match[1]);
   if (!Number.isInteger(hour) || hour < 0 || hour > 23) {
     throw new Error(`Unexpected public PVPC hour value ${value}`);
   }

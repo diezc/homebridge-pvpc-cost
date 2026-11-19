@@ -253,7 +253,7 @@ export class PVPCCostPlatform implements DynamicPlatformPlugin {
     }
 
     informationService
-      .setCharacteristic(this.Characteristic.Manufacturer, 'OpenCode')
+      .setCharacteristic(this.Characteristic.Manufacturer, PLUGIN_NAME)
       .setCharacteristic(this.Characteristic.Model, getAccessoryModel(accessory.context.kind))
       .setCharacteristic(this.Characteristic.SerialNumber, `${this.resolvedConfig.zone}-${accessory.context.kind}`)
       .setCharacteristic(this.Characteristic.FirmwareRevision, PLUGIN_VERSION)

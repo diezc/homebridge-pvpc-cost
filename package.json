@@ -2,7 +2,7 @@
   "name": "homebridge-pvpc-cost",
   "displayName": "Homebridge PVPC Cost",
   "version": "0.1.5",
-  "author": "OpenCode",
+  "author": "Cesar Martin",
   "description": "Homebridge dynamic platform plugin exposing Spain PVPC electricity pricing to Apple Home.",
   "type": "module",
   "main": "dist/index.js",
@@ -39,11 +39,11 @@
   "scripts": {
     "build": "rimraf ./dist && tsc",
     "lint": "eslint . --max-warnings=0",
-    "test": "tsx --test test/**/*.test.ts",
+    "test": "tsx --test test/*.test.ts",
     "smoke": "tsx --test test/homebridge-smoke.integration.ts",
     "pack:podman": "./scripts/podman-pack.sh",
     "pack:dryrun": "npm pack --dry-run",
-    "prepublishOnly": "npm run lint && npm run build && echo 'Skipping test due to glob pattern issue - all tests verified manually' && npm run smoke && npm run pack:dryrun"
+    "prepublishOnly": "npm run lint && npm run build && npm run test && npm run smoke && npm run pack:dryrun"
   },
   "peerDependencies": {
     "homebridge": "^1.8.0 || ^2.0.0"

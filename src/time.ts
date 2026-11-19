@@ -55,10 +55,6 @@ export function getUtcHourKey(date: Date): string {
   return utcHourStart.toISOString();
 }
 
-export function getMadridDateKeyFromUtcHourKey(utcHourKey: string): string {
-  return getMadridDateKey(new Date(utcHourKey));
-}
-
 export function getMadridHourKeyFromUtcHourKey(utcHourKey: string): string {
   return getMadridHourKey(new Date(utcHourKey));
 }

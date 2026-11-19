@@ -6,14 +6,25 @@ import path from 'node:path';
 
 import { PVPCClient, mergeHourlyPrices, parsePublicPvpc, parseTokenPvpc } from '../src/pvpc-client.js';
 
-test('parsePublicPvpc normalizes millieuro values to EUR/kWh', () => {
-  const result = parsePublicPvpc({
-    PVPC: [
-      { Dia: '22/06/2026', Hora: '00-01', PCB: '134,54', CYM: '134,54' },
-      { Dia: '22/06/2026', Hora: '01-02', PCB: '126,94', CYM: '126,94' },
-    ],
-  }, 'PCB');
+/** Builds a full day of public PVPC rows (24 by default), with per-hour price overrides. */
+function publicDay(dia: string, prices: Record<number, string> = {}, length = 24) {
+  return {
+    PVPC: Array.from({ length }, (_, index) => {
+      const price = prices[index] ?? '100,00';
+      return {
+        Dia: dia,
+        Hora: `${String(index % 24).padStart(2, '0')}-${String((index + 1) % 24).padStart(2, '0')}`,
+        PCB: price,
+        CYM: price,
+      };
+    }),
+  };
+}
 
+test('parsePublicPvpc normalizes millieuro values to EUR/kWh', () => {
+  const result = parsePublicPvpc(publicDay('22/06/2026', { 0: '134,54', 1: '126,94' }), 'PCB');
+
+  assert.equal(Object.keys(result).length, 24);
   assert.equal(result['2026-06-21T22:00:00.000Z'], 0.13454);
   assert.equal(result['2026-06-21T23:00:00.000Z'], 0.12694);
 });
@@ -35,14 +46,7 @@ test('parseTokenPvpc filters the requested geographic zone and normalizes EUR/MW
 });
 
 test('parsePublicPvpc keeps unique hours across DST fallback day', () => {
-  const result = parsePublicPvpc({
-    PVPC: Array.from({ length: 25 }, (_, index) => ({
-      Dia: '26/10/2025',
-      Hora: `${String(index % 24).padStart(2, '0')}-${String((index + 1) % 24).padStart(2, '0')}`,
-      PCB: '100,00',
-      CYM: '100,00',
-    })),
-  }, 'PCB');
+  const result = parsePublicPvpc(publicDay('26/10/2025', {}, 25), 'PCB');
 
   assert.equal(Object.keys(result).length, 25);
   assert.equal(new Set(Object.keys(result)).size, 25);
@@ -51,11 +55,34 @@ test('parsePublicPvpc keeps unique hours across DST fallback day', () => {
 });
 
 test('parsePublicPvpc rejects invalid numeric values', () => {
-  assert.throws(() => parsePublicPvpc({
-    PVPC: [
-      { Dia: '22/06/2026', Hora: '00-01', PCB: 'NaN', CYM: '134,54' },
-    ],
-  }, 'PCB'));
+  assert.throws(() => parsePublicPvpc(publicDay('22/06/2026', { 5: 'NaN' }), 'PCB'), /Invalid European numeric value/);
+});
+
+test('parsePublicPvpc rejects quarter-hour data instead of mislabelling hours', () => {
+  assert.throws(
+    () => parsePublicPvpc(publicDay('22/06/2026', {}, 96), 'PCB'),
+    /expected 23-25 hourly rows, got 96/,
+  );
+});
+
+test('parsePublicPvpc rejects unexpected hour labels', () => {
+  const payload = publicDay('22/06/2026');
+  payload.PVPC[3].Hora = '03:00';
+  assert.throws(() => parsePublicPvpc(payload, 'PCB'), /Unexpected public PVPC hour value 03:00/);
+});
+
+test('parseTokenPvpc averages sub-hourly values into one hourly price', () => {
+  const result = parseTokenPvpc({
+    indicator: {
+      values: [0, 15, 30, 45].map((minute, index) => ({
+        value: 100 + (index * 10), // 100, 110, 120, 130 EUR/MWh -> average 115
+        datetime: `2026-06-22T10:${String(minute).padStart(2, '0')}:00.000+02:00`,
+        geo_name: 'Península',
+      })),
+    },
+  }, 'Península');
+
+  assert.deepEqual(result, { '2026-06-22T08:00:00.000Z': 0.115 });
 });
 
 test('PVPCClient ignores corrupted cache contents', async () => {
@@ -93,12 +120,7 @@ test('PVPCClient loads deterministic mock data file', async () => {
   assert.equal(client.isMockMode(), true);
 });
 
-const TODAY_PUBLIC_PAYLOAD = {
-  PVPC: [
-    { Dia: '22/06/2026', Hora: '00-01', PCB: '134,54', CYM: '134,54' },
-    { Dia: '22/06/2026', Hora: '01-02', PCB: '126,94', CYM: '126,94' },
-  ],
-};
+const TODAY_PUBLIC_PAYLOAD = publicDay('22/06/2026', { 0: '134,54', 1: '126,94' });
 
 function mockPublicFetch(payloadsByDate: Record<string, unknown>) {
   const calls: { date: string | null; signal: unknown }[] = [];
@@ -120,7 +142,7 @@ test('PVPCClient keeps today prices when tomorrow is not published yet', async (
 
   assert.deepEqual(calls.map(call => call.date), ['2026-06-22', '2026-06-23']);
   assert.equal(result.hourlyPrices['2026-06-21T22:00:00.000Z'], 0.13454);
-  assert.equal(Object.keys(result.hourlyPrices).length, 2);
+  assert.equal(Object.keys(result.hourlyPrices).length, 24);
   assert.match(result.tomorrowError ?? '', /did not contain hourly rows/);
 });
 

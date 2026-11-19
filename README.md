@@ -11,12 +11,9 @@ Homebridge dynamic platform plugin that exposes Spain PVPC electricity pricing t
 - Computes:
   - `currentPrice`
   - `currentBand`
-  - `cheapestHourToday`
-  - `cheapestHourNext24h`
   - `isCheapNow`
   - `isExpensiveNow`
   - `nextCheapStart`
-  - `hoursUntilCheap`
 - Exposes automation-friendly HomeKit accessories.
 - Supports deterministic offline testing through a mock-data file.
 
