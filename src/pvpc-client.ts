@@ -4,6 +4,7 @@ import path from 'node:path';
 import {
   CACHE_FILE_NAME,
   FETCH_RETRY_DELAY_MS,
+  FETCH_TIMEOUT_MS,
   MAX_FETCH_ATTEMPTS,
   PUBLIC_PVPC_URL,
   TOKEN_PVPC_URL,
@@ -146,42 +147,28 @@ export class PVPCClient {
   }
 
   private async fetchFromPublic(now: Date): Promise<FetchPricesResult> {
-    const todayDate = getMadridDateKey(now);
-    const hourlyPrices: Record<string, number> = {};
     const publicZone = PUBLIC_FALLBACK_ZONE[this.zone];
-    const dates = [todayDate];
-
-    if (shouldFetchTomorrow(now)) {
-      dates.push(getRelativeMadridDateKey(now, 1));
-    }
-
-    for (const dateKey of dates) {
+    const { hourlyPrices, tomorrowError } = await fetchTodayAndTomorrow(now, async (dateKey) => {
       const url = new URL(PUBLIC_PVPC_URL);
       url.searchParams.set('locale', 'es');
       url.searchParams.set('date', dateKey);
 
       const payload = await fetchJson<PublicResponse>(url, undefined);
-      Object.assign(hourlyPrices, parsePublicPvpc(payload, publicZone));
-    }
+      return parsePublicPvpc(payload, publicZone);
+    });
 
     return {
       source: 'esios-public',
       resolvedZoneLabel: publicZone,
       hourlyPrices,
       fetchedAt: new Date().toISOString(),
+      tomorrowError,
     };
   }
 
   private async fetchFromToken(now: Date): Promise<FetchPricesResult> {
-    const geographicZone = this.zone as Exclude<Zone, 'PCB' | 'CYM'>;
-    const dates = [getMadridDateKey(now)];
-    const hourlyPrices: Record<string, number> = {};
-
-    if (shouldFetchTomorrow(now)) {
-      dates.push(getRelativeMadridDateKey(now, 1));
-    }
-
-    for (const dateKey of dates) {
+    const geoName = TOKEN_ZONE_TO_GEO_NAME[this.zone as Exclude<Zone, 'PCB' | 'CYM'>];
+    const { hourlyPrices, tomorrowError } = await fetchTodayAndTomorrow(now, async (dateKey) => {
       const url = new URL(TOKEN_PVPC_URL);
       url.searchParams.set('start_date', `${dateKey}T00:00`);
       url.searchParams.set('end_date', `${dateKey}T23:59`);
@@ -192,14 +179,15 @@ export class PVPCClient {
         'Authorization': `Token token=${this.esiosApiToken}`,
         'x-api-key': this.esiosApiToken ?? '',
       });
-      Object.assign(hourlyPrices, parseTokenPvpc(payload, TOKEN_ZONE_TO_GEO_NAME[geographicZone]));
-    }
+      return parseTokenPvpc(payload, geoName);
+    });
 
     return {
       source: 'esios-token',
-      resolvedZoneLabel: TOKEN_ZONE_TO_GEO_NAME[geographicZone],
+      resolvedZoneLabel: geoName,
       hourlyPrices,
       fetchedAt: new Date().toISOString(),
+      tomorrowError,
     };
   }
 
@@ -275,12 +263,50 @@ export function parseTokenPvpc(payload: TokenResponse, geoName: string): Record<
   }));
 }
 
+/**
+ * Merges freshly fetched prices over previously known ones (incoming values win), so a refresh
+ * that could not get tomorrow's prices keeps the ones it already had. Previously known hours older
+ * than 24h are dropped; incoming hours are always kept.
+ */
+export function mergeHourlyPrices(
+  existing: Record<string, number>,
+  incoming: Record<string, number>,
+  now: Date = new Date(),
+): Record<string, number> {
+  return { ...pruneOldHourKeys(existing, now), ...incoming };
+}
+
+/**
+ * Fetches today's prices (required: failures propagate) and, after the evening cutoff,
+ * tomorrow's prices on a best-effort basis, since they may not be published yet.
+ */
+async function fetchTodayAndTomorrow(
+  now: Date,
+  fetchDate: (dateKey: string) => Promise<Record<string, number>>,
+): Promise<{ hourlyPrices: Record<string, number>; tomorrowError?: string }> {
+  const hourlyPrices = { ...await fetchDate(getMadridDateKey(now)) };
+
+  if (!shouldFetchTomorrow(now)) {
+    return { hourlyPrices };
+  }
+
+  try {
+    Object.assign(hourlyPrices, await fetchDate(getRelativeMadridDateKey(now, 1)));
+    return { hourlyPrices };
+  } catch (error) {
+    return {
+      hourlyPrices,
+      tomorrowError: error instanceof Error ? error.message : 'Unknown error fetching tomorrow prices',
+    };
+  }
+}
+
 async function fetchJson<T>(url: URL, headers: Record<string, string> | undefined): Promise<T> {
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= MAX_FETCH_ATTEMPTS; attempt += 1) {
     try {
-      const response = await fetch(url, { headers });
+      const response = await fetch(url, { headers, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
       if (!response.ok) {
         throw new Error(`Unexpected HTTP status ${response.status} for ${url.toString()}`);
       }
@@ -315,8 +341,8 @@ function parsePublicHour(value: string): number {
   return hour;
 }
 
-function pruneOldHourKeys(hourlyPrices: Record<string, number>): Record<string, number> {
-  const minimumTimestamp = Date.parse(getUtcHourKey(new Date())) - (24 * 3600000);
+function pruneOldHourKeys(hourlyPrices: Record<string, number>, now: Date = new Date()): Record<string, number> {
+  const minimumTimestamp = Date.parse(getUtcHourKey(now)) - (24 * 3600000);
 
   return Object.fromEntries(
     Object.entries(hourlyPrices)
