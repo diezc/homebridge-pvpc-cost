@@ -21,7 +21,7 @@ import {
   PLUGIN_VERSION,
 } from './settings.js';
 import { computeDerivedState } from './pvpc-state.js';
-import { PVPCClient } from './pvpc-client.js';
+import { mergeHourlyPrices, PVPCClient } from './pvpc-client.js';
 import { getTomorrowRefreshDelayMs, getUtcHourKey } from './time.js';
 import type {
   AccessoryKind,
@@ -55,7 +55,10 @@ export class PVPCCostPlatform implements DynamicPlatformPlugin {
   private lastSourceLabel = 'unknown';
   private staleWarningLogged = false;
   private fetchErrorLogged = false;
+  private tomorrowErrorLogged = false;
   private lastStateSummary?: string;
+  private refreshInFlight?: Promise<void>;
+  private refreshRerunReason?: string;
 
   constructor(
     public readonly log: Logging,
@@ -133,11 +136,33 @@ export class PVPCCostPlatform implements DynamicPlatformPlugin {
     }, delayMs);
   }
 
-  private async refreshData(reason: string): Promise<void> {
+  /**
+   * Runs at most one refresh at a time. A refresh requested while another is in flight
+   * is coalesced into a single follow-up run once the current one finishes.
+   */
+  private refreshData(reason: string): Promise<void> {
+    if (this.refreshInFlight !== undefined) {
+      this.log.debug(`PVPC refresh (${reason}) requested while another is running; queued`);
+      this.refreshRerunReason = reason;
+      return this.refreshInFlight;
+    }
+
+    this.refreshInFlight = this.runRefresh(reason).finally(() => {
+      this.refreshInFlight = undefined;
+      const rerunReason = this.refreshRerunReason;
+      this.refreshRerunReason = undefined;
+      if (rerunReason !== undefined) {
+        void this.refreshData(rerunReason);
+      }
+    });
+    return this.refreshInFlight;
+  }
+
+  private async runRefresh(reason: string): Promise<void> {
     try {
       const result = await this.client.fetchLatest(new Date());
       this.applyFetchResult(result, reason);
-      await this.client.saveCache(result);
+      await this.client.saveCache({ ...result, hourlyPrices: this.hourlyPrices });
       this.fetchErrorLogged = false;
     } catch (error) {
       if (!this.fetchErrorLogged) {
@@ -150,7 +175,8 @@ export class PVPCCostPlatform implements DynamicPlatformPlugin {
   }
 
   private applyFetchResult(result: FetchPricesResult, reason: string): void {
-    this.hourlyPrices = result.hourlyPrices;
+    this.hourlyPrices = mergeHourlyPrices(this.hourlyPrices, result.hourlyPrices);
+    this.logTomorrowResult(result.tomorrowError, reason);
     this.lastSuccessfulFetchAt = new Date(result.fetchedAt);
     this.lastSourceLabel = `${result.source} (${result.resolvedZoneLabel})`;
     this.updateCharacteristics();
@@ -161,6 +187,18 @@ export class PVPCCostPlatform implements DynamicPlatformPlugin {
       this.log.info(`PVPC data loaded from ${this.lastSourceLabel}; current price ${currentPriceLabel}`);
     } else {
       this.log.debug(`PVPC data refreshed from ${this.lastSourceLabel}; current price ${currentPriceLabel}`);
+    }
+  }
+
+  private logTomorrowResult(tomorrowError: string | undefined, reason: string): void {
+    if (tomorrowError === undefined) {
+      this.tomorrowErrorLogged = false;
+      return;
+    }
+
+    if (!this.tomorrowErrorLogged) {
+      this.log.info(`Tomorrow's PVPC prices not available yet during ${reason}: ${tomorrowError}`);
+      this.tomorrowErrorLogged = true;
     }
   }
 

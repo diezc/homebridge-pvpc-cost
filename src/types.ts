@@ -50,6 +50,8 @@ export interface FetchPricesResult {
   resolvedZoneLabel: string;
   hourlyPrices: Record<string, number>;
   fetchedAt: string;
+  /** Set when tomorrow's prices were requested but could not be fetched; today's prices are still valid. */
+  tomorrowError?: string;
 }
 
 export interface CheapestHour {

@@ -12,4 +12,5 @@ export const DEFAULT_EXPOSE_MODE = 'both';
 export const CACHE_FILE_NAME = 'pvpc-cost-cache.json';
 export const MAX_FETCH_ATTEMPTS = 3;
 export const FETCH_RETRY_DELAY_MS = 1500;
+export const FETCH_TIMEOUT_MS = 15000;
 export const MOCK_DATA_FILE_ENV = 'PVPC_MOCK_DATA_FILE';
